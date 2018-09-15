@@ -1,7 +1,6 @@
 #pragma warning(disable : 4996)
 
 #include<iostream>
-#include<comdef.h>
 #include<locale>
 #include"Utils.h"
 
@@ -13,8 +12,6 @@ void OutputTime();
 
 int main(int argc, const char** argv)
 {
-	_wsetlocale(LC_ALL, L".1251");
-	setlocale(LC_ALL, ".1251");
 
 	DWORD OS_Name_Buf = MAX_COMPUTERNAME_LENGTH + 1;
 	DWORD User_Name_Buf = MAX_COMPUTERNAME_LENGTH + 1;
@@ -26,14 +23,12 @@ int main(int argc, const char** argv)
 	TCHAR* Win_Dir = new TCHAR[Dir_Buf];
 	TCHAR* Temp_Dir = new TCHAR[Dir_Buf];
 
-	OSVERSIONINFOA info;
-
 	GetComputerName(OS_Name, &OS_Name_Buf);
 	GetUserName(User_Name, &User_Name_Buf);
 	GetSystemDirectory(Sys_Dir, Dir_Buf);
 	GetWindowsDirectory(Win_Dir, Dir_Buf);
 	GetTempPath(Dir_Buf, Temp_Dir);
-	GetVersionEx(&info);
+	DWORD version = GetVersion();
 
 	std::cout << "Hello computer, " << OS_Name << std::endl;
 	std::cout << "Welcome user, " << User_Name << std::endl << std::endl;
@@ -41,8 +36,7 @@ int main(int argc, const char** argv)
 	std::cout << "System directory: " << Sys_Dir << std::endl;
 	std::cout << "Windows directory: " << Win_Dir << std::endl;
 	std::cout << "Temporary directory: " << Temp_Dir << std::endl;
-	std::cout << "Windows version: " << info.dwMajorVersion << "." << info.dwMinorVersion << "." << info.dwBuildNumber << " Platform ID: "
-		<< info.dwPlatformId << std::endl;
+	std::cout << "Windows version: " << (DWORD)LOBYTE(LOWORD(version)) << "." << (DWORD)HIBYTE(LOWORD(version)) << "." << (DWORD)(HIWORD(version)) << std::endl;
 	std::cout << std::endl;
 
 	std::cout << "\tSome system metrics" << std::endl;
@@ -138,9 +132,15 @@ void OutputColors()
 	DWORD bg_col = GetSysColor(COLOR_BACKGROUND);
 	std::cout << "Background color RGB: " << GetColorString(bg_col) << std::endl;
 
-	const int elem_amt = 2;
-	INT col_elements[elem_amt] = { COLOR_ACTIVEBORDER, COLOR_BACKGROUND };
-	COLORREF colors[elem_amt] = { RGB(100,0,125), RGB(10,255,255) };
+	DWORD btn_col = GetSysColor(COLOR_BTNHIGHLIGHT);
+	std::cout << "Button highlight color RGB: " << GetColorString(btn_col) << std::endl;
+
+	DWORD frame_col = GetSysColor(COLOR_WINDOWFRAME);
+	std::cout << "Window frame color RGB: " << GetColorString(frame_col) << std::endl;
+
+	const int elem_amt = 4;
+	INT col_elements[elem_amt] = { COLOR_ACTIVEBORDER, COLOR_BACKGROUND, COLOR_BTNHIGHLIGHT, COLOR_WINDOWFRAME };
+	COLORREF colors[elem_amt] = { RGB(100,0,125), RGB(10,255,255), RGB(0,0,0), RGB(100,20,100) };
 	SetSysColors(elem_amt, col_elements, colors);
 
 	std::cout << "Changed colors!" << std::endl;
@@ -150,6 +150,12 @@ void OutputColors()
 
 	bg_col = GetSysColor(COLOR_BACKGROUND);
 	std::cout << "Background color RGB: " << GetColorString(bg_col) << std::endl;
+
+	btn_col = GetSysColor(COLOR_BTNHIGHLIGHT);
+	std::cout << "Button highlight color RGB: " << GetColorString(btn_col) << std::endl;
+
+	frame_col = GetSysColor(COLOR_WINDOWFRAME);
+	std::cout << "Window frame color RGB: " << GetColorString(frame_col) << std::endl;
 }
 
 void OutputTime()
