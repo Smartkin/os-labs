@@ -28,7 +28,10 @@ int main(int argc, const char** argv)
 	GetSystemDirectory(Sys_Dir, Dir_Buf);
 	GetWindowsDirectory(Win_Dir, Dir_Buf);
 	GetTempPath(Dir_Buf, Temp_Dir);
-	DWORD version = GetVersion();
+
+	OSVERSIONINFO info;
+	info.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+	GetVersionEx(&info);
 
 	std::cout << "Hello computer, " << OS_Name << std::endl;
 	std::cout << "Welcome user, " << User_Name << std::endl << std::endl;
@@ -36,7 +39,8 @@ int main(int argc, const char** argv)
 	std::cout << "System directory: " << Sys_Dir << std::endl;
 	std::cout << "Windows directory: " << Win_Dir << std::endl;
 	std::cout << "Temporary directory: " << Temp_Dir << std::endl;
-	std::cout << "Windows version: " << (DWORD)LOBYTE(LOWORD(version)) << "." << (DWORD)HIBYTE(LOWORD(version)) << "." << (DWORD)(HIWORD(version)) << std::endl;
+	std::cout << "Windows version: " << info.dwMajorVersion << "." << info.dwMinorVersion << "." << info.dwBuildNumber <<
+		" PlatformID: " << info.dwPlatformId << std::endl;
 	std::cout << std::endl;
 
 	std::cout << "\tSome system metrics" << std::endl;
