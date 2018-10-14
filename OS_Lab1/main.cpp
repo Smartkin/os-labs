@@ -8,10 +8,13 @@ void OutputMetrics();
 void OutputParameters();
 void OutputColors();
 void OutputTime();
+void OutputIndividualFunctions();
 
 
 int main(int argc, const char** argv)
 {
+	setlocale(LC_ALL, "rus");
+	_wsetlocale(LC_ALL, L"rus");
 
 	DWORD OS_Name_Buf = MAX_COMPUTERNAME_LENGTH + 1;
 	DWORD User_Name_Buf = MAX_COMPUTERNAME_LENGTH + 1;
@@ -58,7 +61,10 @@ int main(int argc, const char** argv)
 	std::cout << "\tSome time information" << std::endl;
 	OutputTime();
 	std::cout << std::endl;
-	
+
+	std::cout << "\tSome other API functions" << std::endl;
+	OutputIndividualFunctions();
+	std::cout << std::endl;
 
 	//Clean up the buffers
 	delete[] OS_Name;
@@ -71,13 +77,47 @@ int main(int argc, const char** argv)
 	return 0;
 }
 
+void OutputIndividualFunctions()
+{
+	//Get the string of where the command line was called from
+	LPTSTR cmd = GetCommandLine();
+	std::cout << "Command Line is: " << cmd << std::endl;
+
+	//Obtain and output the text of the given button
+	TCHAR* buf = new TCHAR[256];
+	UINT scan_code = MapVirtualKey(VK_VOLUME_UP, MAPVK_VK_TO_VSC);
+	GetKeyNameText((scan_code << 16), buf, 256);
+	std::cout << "Key name of VK_VOLUME_UP " << buf << std::endl;
+
+	//Play OS's sounds
+	std::cout << "Playing MB_ICONHAND sound!" << std::endl;
+	MessageBeep(MB_ICONHAND);
+
+	//If TRUE is passed Left and Right mouse buttons are reversed in their press meaning
+	BOOL mouse_swap_flag = FALSE;
+	BOOL previous_swap = SwapMouseButton(FALSE);
+	SwapMouseButton(previous_swap);
+	std::cout << "Do you wish to swap your mouse buttons? ";
+	std::cin >> mouse_swap_flag;
+
+	//Check if buttons were swapped previously, inverse the logic if they were
+	if (previous_swap != 0)
+	{
+		mouse_swap_flag = mouse_swap_flag > 0 ? FALSE : TRUE;
+	}
+	else
+	{
+		mouse_swap_flag = mouse_swap_flag > 0 ? TRUE : FALSE;
+	}
+	SwapMouseButton(mouse_swap_flag);
+}
 
 void OutputParameters()
 {
 	ANIMATIONINFO anim_info;
 	BOOL font_smooth;
 	anim_info.cbSize = sizeof(ANIMATIONINFO);
-	
+
 	SystemParametersInfo(SPI_GETANIMATION, sizeof(ANIMATIONINFO), &anim_info, 0);
 	SystemParametersInfo(SPI_GETFONTSMOOTHING, 0, &font_smooth, 0);
 
@@ -149,17 +189,24 @@ void OutputColors()
 
 	std::cout << "Changed colors!" << std::endl;
 
-	act_caption_col = GetSysColor(COLOR_ACTIVEBORDER);
-	std::cout << "Activate border color RGB: " << (act_caption_col & 255) << ":" << (act_caption_col >> 8 & 255) << ":" << (act_caption_col >> 16 & 255) << std::endl;
+	DWORD new_act_caption_col = GetSysColor(COLOR_ACTIVEBORDER);
+	std::cout << "Activate border color RGB: " << GetColorString(new_act_caption_col) << std::endl;
 
-	bg_col = GetSysColor(COLOR_BACKGROUND);
-	std::cout << "Background color RGB: " << GetColorString(bg_col) << std::endl;
+	DWORD new_bg_col = GetSysColor(COLOR_BACKGROUND);
+	std::cout << "Background color RGB: " << GetColorString(new_bg_col) << std::endl;
 
-	btn_col = GetSysColor(COLOR_BTNHIGHLIGHT);
-	std::cout << "Button highlight color RGB: " << GetColorString(btn_col) << std::endl;
+	DWORD new_btn_col = GetSysColor(COLOR_BTNHIGHLIGHT);
+	std::cout << "Button highlight color RGB: " << GetColorString(new_btn_col) << std::endl;
 
-	frame_col = GetSysColor(COLOR_WINDOWFRAME);
-	std::cout << "Window frame color RGB: " << GetColorString(frame_col) << std::endl;
+	DWORD new_frame_col = GetSysColor(COLOR_WINDOWFRAME);
+	std::cout << "Window frame color RGB: " << GetColorString(new_frame_col) << std::endl;
+
+	//Reset colors back to default
+	colors[0] = act_caption_col;
+	colors[1] = bg_col;
+	colors[2] = btn_col;
+	colors[3] = frame_col;
+	SetSysColors(elem_amt, col_elements, colors);
 }
 
 void OutputTime()
