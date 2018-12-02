@@ -28,7 +28,7 @@ int main(int argc, char** argv)
 	{
 		Sleep(device() % 100 + 10);
 		DWORD res = WaitForSingleObject(mutex, INFINITE);
-		if (res == WAIT_FAILED || res == WAIT_ABANDONED || res == WAIT_OBJECT_0) break;
+		//if (res == WAIT_FAILED || res == WAIT_ABANDONED || res == WAIT_OBJECT_0) break;
 		std::ofstream file("..\\..\\mutex.txt",std::ofstream::app);
 		file << "We keep on changing the content by adding rising number here on the end of each line " << num++ << "\n";
 		file.close();

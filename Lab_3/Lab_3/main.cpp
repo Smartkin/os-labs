@@ -59,6 +59,7 @@ void launch_task(SYNC_METHODS method)
 			std::cout << ".";
 		}
 		std::cout << "\nFinished! With result " << crit_test.get_result() << std::endl;
+
 	}
 		break;
 	case MUTEX:
@@ -82,7 +83,7 @@ void launch_task(SYNC_METHODS method)
 
 		LAB3::EventTest ev_test(ev_name);
 
-		ev_test.get_thread()->join();
+		while (!ev_test.get_result()) {};
 		
 	}
 		break;
