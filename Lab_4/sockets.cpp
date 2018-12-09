@@ -23,11 +23,13 @@ SocketUse::~SocketUse()
 void SocketUse::write(int data_sock, void* data, size_t bytes)
 {
 	int* buf = (int*)data;
+	cout << "Writing data: ";
 	while(*buf)
 	{
 		cout << *(buf++) << " ";
 	}
 	cout << endl;
+	cout << "Wrote bytes: " << bytes << endl;
 	::write(data_sock, data, bytes);
 }
 

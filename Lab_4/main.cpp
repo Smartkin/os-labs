@@ -16,8 +16,7 @@ using std::endl;
 enum IPC_TYPE
 {
 	SOCKETS = 1,
-	PIPE,
-	FILEMAP
+	PIPE
 };
 
 void processChoice(IPC_TYPE ch, std::vector<int> to_sort);
@@ -40,10 +39,9 @@ int main(int argc, char** argv)
 		cout << "Enter interprocess communication method (0 to exit): " << endl;
 		cout << "1. Sockets" << endl;
 		cout << "2. Pipe" << endl;
-		cout << "3. File mapping" << endl;
 		cout << "Choice: ";
 		cin >> choice; cin.ignore();
-		if (choice < 0 || choice > 3) { choice = -1; continue; }
+		if (choice < 0 || choice > 2) { choice = -1; continue; }
 		processChoice((IPC_TYPE)choice, to_sort);
 	}
 
@@ -139,9 +137,12 @@ std::vector<int> do_sort(std::vector<int> to_sort, bool main_proc)
 			auto data_sock = accept(sock.getSockfd(), NULL, NULL);
 			std::vector<int> one_sort;
 			int int_size = sizeof(int);
-			char* buf = SocketUse::read(data_sock, to_sort.size()/2 * int_size);
-			cout << "Read amount of bytes: " << to_sort.size()/2 * int_size << endl;
-			for(int i = 0; i < to_sort.size()/2 * int_size; i += int_size)
+			char* btr = SocketUse::read(data_sock, sizeof(int));
+			cout << "Read amount to read" << endl;
+			int read_amt = ((btr[int_size-1] << 24) | (btr[int_size-2] << 16) | (btr[int_size-3] << 8) | (btr[0]));
+			char* buf = SocketUse::read(data_sock, read_amt);
+			cout << "Read amount of bytes: " << read_amt << endl;
+			for(int i = 0; i < read_amt; i += int_size)
 			{
 				try
 				{
@@ -162,10 +163,17 @@ std::vector<int> do_sort(std::vector<int> to_sort, bool main_proc)
 			std::vector<int> another_sort(to_sort.begin(), to_sort.begin() + to_sort.size()/2);
 			std::sort(another_sort.begin(), another_sort.end(), [](int a, int b) { return a < b; });
 			std::vector<int> res_sort;
+
+			cout << "Concating array: ";
+			for(int i = 0; i < another_sort.size(); ++i)
+			{
+				cout << another_sort[i] << " ";
+			}
+			cout << endl;
 			for(int i = 0; i < to_sort.size(); ++i)
 			{
-				if (i < to_sort.size() / 2) res_sort.push_back(one_sort[i]);
-				else			    res_sort.push_back(another_sort[i-to_sort.size()/2]);
+				if (i < one_sort.size()) res_sort.push_back(one_sort[i]);
+				else			    res_sort.push_back(another_sort[i-one_sort.size()]);
 			}
 			std::sort(res_sort.begin(), res_sort.end(), [](int a,int b) { return a < b; });
 			if (!main_proc)
@@ -177,7 +185,9 @@ std::vector<int> do_sort(std::vector<int> to_sort, bool main_proc)
 				addr.sun_family = AF_UNIX;
 				strncpy(addr.sun_path, SOCK_PREV_NAME.c_str(), sizeof(addr.sun_path) - 1);
 				connect(data_sock, (const struct sockaddr *) &addr, sizeof(struct sockaddr_un));
-				SocketUse::write(data_sock, res_sort.data(), res_sort.size() * int_size);
+				int bytes_to_read = res_sort.size() * sizeof(int);
+				SocketUse::write(data_sock, &bytes_to_read, sizeof(int));
+				SocketUse::write(data_sock, res_sort.data(), res_sort.size() * sizeof(int));
 				close(data_sock);
 				sock.~SocketUse();
 				_exit(EXIT_SUCCESS);
@@ -195,10 +205,12 @@ std::vector<int> do_sort(std::vector<int> to_sort, bool main_proc)
 		// Connect to socket
 		struct sockaddr_un addr;
 		auto data_sock = socket(AF_UNIX, SOCK_STREAM, 0);
+		auto bytes_to_read = sizeof(int);
 		addr.sun_family = AF_UNIX;
 		strncpy(addr.sun_path, SOCK_PREV_NAME.c_str(), sizeof(addr.sun_path) - 1);
 		connect(data_sock, (const struct sockaddr *) &addr, sizeof(struct sockaddr_un));
 		std::sort(to_sort.begin(), to_sort.end(), [](int a,int b) { return a < b; });
+		SocketUse::write(data_sock, &bytes_to_read, sizeof(int));
 		SocketUse::write(data_sock, to_sort.data(), to_sort.size() * sizeof(int));
 		close(data_sock);
 		_exit(EXIT_SUCCESS);
@@ -221,8 +233,6 @@ void processChoice(IPC_TYPE ch, std::vector<int> to_sort)
 				to_sort = do_sort(p, to_sort, true);
 			}
 			break;
-		case FILEMAP:
-			break;
 		default:
 			return;
 			break;
@@ -240,7 +250,7 @@ std::vector<int> gen_arr(int size)
 {
 	std::vector<int> arr;
 	std::default_random_engine gen(std::chrono::system_clock::now().time_since_epoch().count());
-	std::uniform_int_distribution<int> distribution(-500,500);
+	std::uniform_int_distribution<int> distribution(-5*size,5*size);
 	for (auto i = 0; i < size; ++i)
 	{
 		arr.push_back(distribution(gen));
