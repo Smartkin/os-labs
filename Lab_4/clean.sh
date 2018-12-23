@@ -1,1 +1,1 @@
-rm /tmp/*.socket
+rm /tmp/*.socket || rm memory_map.txt

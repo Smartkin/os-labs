@@ -7,8 +7,16 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <fstream>
 #include <sys/wait.h>
+#include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <errno.h>
+
+#define PROT_ALL PROT_EXEC | PROT_READ | PROT_WRITE
+
 using std::cout;
 using std::cin;
 using std::endl;
@@ -16,7 +24,8 @@ using std::endl;
 enum IPC_TYPE
 {
 	SOCKETS = 1,
-	PIPE
+	PIPE,
+	MMAP
 };
 
 void processChoice(IPC_TYPE ch, std::vector<int> to_sort);
@@ -39,9 +48,10 @@ int main(int argc, char** argv)
 		cout << "Enter interprocess communication method (0 to exit): " << endl;
 		cout << "1. Sockets" << endl;
 		cout << "2. Pipe" << endl;
+		cout << "3. Memory Map" << endl;
 		cout << "Choice: ";
 		cin >> choice; cin.ignore();
-		if (choice < 0 || choice > 2) { choice = -1; continue; }
+		if (choice < 0 || choice > 3) { choice = -1; continue; }
 		processChoice((IPC_TYPE)choice, to_sort);
 	}
 
@@ -90,10 +100,13 @@ std::vector<int> do_sort(PipeUse& p, std::vector<int> to_sort, bool main_proc)
 			std::vector<int> another_sort(to_sort.begin(), to_sort.begin() + to_sort.size()/2);
 			std::sort(another_sort.begin(), another_sort.end(), [](int a, int b) { return a < b; });
 			std::vector<int> res_sort;
-			for(int i = 0; i < to_sort.size(); ++i)
+			for(int i = 0; i < one_sort.size(); ++i)
 			{
-				if (i < to_sort.size() / 2) res_sort.push_back(one_sort[i]);
-				else			    res_sort.push_back(another_sort[i-to_sort.size()/2]);
+				res_sort.push_back(one_sort[i]);
+			}
+			for(int i = 0; i < another_sort.size(); ++i)
+			{
+				res_sort.push_back(another_sort[i]);
 			}
 			std::sort(res_sort.begin(), res_sort.end(), [](int a,int b) { return a < b; });
 			if (!main_proc)
@@ -115,7 +128,7 @@ std::vector<int> do_sort(PipeUse& p, std::vector<int> to_sort, bool main_proc)
 }
 
 
-int sock_name_id = 0;
+int sock_name_id = 1;
 std::vector<int> do_sort(std::vector<int> to_sort, bool main_proc)
 {
 	if (to_sort.size() >= 2)
@@ -133,7 +146,7 @@ std::vector<int> do_sort(std::vector<int> to_sort, bool main_proc)
 			const std::string SOCK_PREV_NAME = std::string("/tmp/383nfa92jf")+std::to_string(sock_name_id-2)+std::string(".socket");
 			SocketUse sock(SOCK_NAME);
 			cout << "Litening on socket name: " << SOCK_NAME << endl;
-			listen(sock.getSockfd(), 20);
+			listen(sock.getSockfd(), 1000);
 			auto data_sock = accept(sock.getSockfd(), NULL, NULL);
 			std::vector<int> one_sort;
 			int int_size = sizeof(int);
@@ -160,6 +173,7 @@ std::vector<int> do_sort(std::vector<int> to_sort, bool main_proc)
 			}
 			cout << endl;
 			delete[] buf;
+			delete btr;
 			std::vector<int> another_sort(to_sort.begin(), to_sort.begin() + to_sort.size()/2);
 			std::sort(another_sort.begin(), another_sort.end(), [](int a, int b) { return a < b; });
 			std::vector<int> res_sort;
@@ -170,10 +184,13 @@ std::vector<int> do_sort(std::vector<int> to_sort, bool main_proc)
 				cout << another_sort[i] << " ";
 			}
 			cout << endl;
-			for(int i = 0; i < to_sort.size(); ++i)
+			for(int i = 0; i < one_sort.size(); ++i)
 			{
-				if (i < one_sort.size()) res_sort.push_back(one_sort[i]);
-				else			    res_sort.push_back(another_sort[i-one_sort.size()]);
+				res_sort.push_back(one_sort[i]);
+			}
+			for(int i=0;i<another_sort.size(); ++i)
+			{
+				res_sort.push_back(another_sort[i]);
 			}
 			std::sort(res_sort.begin(), res_sort.end(), [](int a,int b) { return a < b; });
 			if (!main_proc)
@@ -218,6 +235,111 @@ std::vector<int> do_sort(std::vector<int> to_sort, bool main_proc)
 	return std::vector<int>();
 }
 
+std::vector<int> do_sort(std::vector<int> to_sort, int* memory, unsigned int write_off, bool main_proc)
+{
+	if (to_sort.size() >= 2)
+	{
+		auto p_id = fork();
+		if (p_id == 0)
+		{
+			std::vector<int> new_sort(to_sort.begin() + to_sort.size()/2, to_sort.end());
+			cout << "Offset writing set to: " << (write_off + new_sort.size()) << endl;
+			do_sort(new_sort, memory, write_off + new_sort.size(), false);
+			_exit(EXIT_SUCCESS);
+		}
+		else
+		{
+			cout << "Waiting on child..." << endl;
+			wait(NULL);
+			cout << "Child finished" << endl;
+			std::vector<int> one_sort;
+			auto int_size = sizeof(int);
+			cout << "Data in buffer: " << endl;
+			int* buf = memory + write_off + to_sort.size()/2;
+			//while(buf)
+			//{
+			//	cout << buf++ << endl;
+			//}
+			//buf = buf2;
+			for(int i = 0; i < to_sort.size()/2; ++i)
+			{
+				try
+				{
+					one_sort.push_back(buf[i]);
+				}
+				catch(std::exception e)
+				{
+					std::cerr << "Got exception: " << e.what() << endl;
+				}
+			}
+			cout << "Got new array: ";
+			for(int i = 0; i < one_sort.size(); ++i)
+			{
+				cout << one_sort[i] << " ";
+			}
+			cout << endl;
+			std::vector<int> another_sort(to_sort.begin(), to_sort.begin() + to_sort.size()/2);
+			std::sort(another_sort.begin(), another_sort.end(), [](int a, int b) { return a < b; });
+			std::vector<int> res_sort;
+			for(int i = 0; i < one_sort.size(); ++i)
+			{
+				res_sort.push_back(one_sort[i]);
+			}
+			for(int i = 0; i < another_sort.size(); ++i)
+			{
+				res_sort.push_back(another_sort[i]);
+			}
+			cout << "Res array: ";
+			for(int i = 0; i < res_sort.size(); ++i)
+			{
+				cout << res_sort[i] << " ";
+			}
+			cout << endl;
+			std::sort(res_sort.begin(), res_sort.end(), [](int a,int b) { return a < b; });
+			cout << "Sorted res array: ";
+			for(int i = 0; i < res_sort.size(); ++i)
+			{
+				cout << res_sort[i] << " ";
+			}
+			cout << endl;
+			if (!main_proc)
+			{
+				int* data = memory + write_off;
+				for(int val : res_sort)
+				{
+					*data = val;
+					data++;
+				}
+				_exit(EXIT_SUCCESS);
+			}
+			return res_sort;
+		}
+	}
+	else
+	{
+		cout << "Came to last stuff" << endl;
+		std::sort(to_sort.begin(),to_sort.end(), [](int a,int b) { return a < b; });
+		int* data = memory + write_off;
+		int* buf2 = data;
+		cout << "Data in buffer: " << endl;
+		cout << "Array size sort: " << to_sort.size() << endl;
+		//int c = 0;
+		//cout << "Is everything ok? " << (c < to_sort.size()) << endl;
+		//while(c < to_sort.size())
+		//cout << c << ": ";
+		cout << (*buf2) << endl;
+		//buf2++;
+		//c++;
+		for(int val : to_sort)
+		{
+			*data = val;
+			data++;
+		}
+		_exit(EXIT_SUCCESS);
+	}
+	return std::vector<int>();
+}
+
 void processChoice(IPC_TYPE ch, std::vector<int> to_sort)
 {
 	switch(ch)
@@ -231,6 +353,30 @@ void processChoice(IPC_TYPE ch, std::vector<int> to_sort)
 			{
 				PipeUse p;
 				to_sort = do_sort(p, to_sort, true);
+			}
+			break;
+		case MMAP:
+			{
+				//Create temp file and map it onto the memory
+				auto fd = open("memory_map.txt", O_CREAT|O_RDWR, S_IRWXU);
+				cout << "File descriptor: " << fd << endl;
+				auto w_op = write(fd, to_sort.data(), to_sort.size() * sizeof(int));
+				if (w_op == -1) { perror("write"); exit(EXIT_FAILURE); }
+				auto m = mmap(NULL, sizeof(int) * to_sort.size(), PROT_ALL, MAP_SHARED, fd, 0);
+				int* m2 = (int*)m;
+				cout << "Data: " << endl;
+				for(auto i = 0; i < to_sort.size(); ++i)
+				{
+					cout << i << ": ";
+					cout << *m2 << endl;
+					m2++;
+				}
+				//Sort
+				to_sort = do_sort(to_sort, (int*)m, 0, true);
+				// Unmap memory as well as close temporary file descriptor
+				munmap(m, sizeof(int) * to_sort.size());
+				close(fd);
+				system("rm memory_map.txt");
 			}
 			break;
 		default:

@@ -24,9 +24,11 @@ void SocketUse::write(int data_sock, void* data, size_t bytes)
 {
 	int* buf = (int*)data;
 	cout << "Writing data: ";
-	while(*buf)
+	int i = 0;
+	while(i > bytes)
 	{
 		cout << *(buf++) << " ";
+		i += sizeof(int);
 	}
 	cout << endl;
 	cout << "Wrote bytes: " << bytes << endl;
